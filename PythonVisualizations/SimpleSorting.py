@@ -9,10 +9,11 @@ except ModuleNotFoundError:
     from .VisualizationApp import *
 
 CELL_SIZE = 50
+MAX_CELL_HEIGHT = 125
 CELL_BORDER = 2
 CELL_BORDER_COLOR = 'black'
 ARRAY_X0 = 100
-ARRAY_Y0 = 100
+ARRAY_Y0 = MAX_CELL_HEIGHT + CELL_SIZE
 FONT_SIZE = 20
 VALUE_FONT = ('Helvetica', FONT_SIZE)
 VALUE_COLOR = 'black'
@@ -29,7 +30,7 @@ class SimpleArraySort(VisualizationApp):
 
         self.buttons = self.makeButtons()
         for i in range(size):
-            self.list.append(drawable(random.randrange(30)))
+            self.list.append(drawable(random.randrange(100)))
         self.display()
         
     def __str__(self):
@@ -41,7 +42,8 @@ class SimpleArraySort(VisualizationApp):
         toItem = self.list[toIndex]
         
         # get positions of "to" cell in array
-        toPositions = (self.cellCoords(toIndex), self.cellCenter(toIndex))
+        toPositions = (list(self.cellCoords(toIndex)), self.cellCenter(toIndex))
+        toPositions[0][3] = self.canvas.coords(fromItem.display_shape)[3]
 
         # create new display objects as copies of the "from" cell and value
         newCell = self.copyCanvasItem(fromItem.display_shape)
@@ -83,22 +85,23 @@ class SimpleArraySort(VisualizationApp):
             tempPos = self.canvas.coords(existing)
             templabel = existing
         else:
-            posLabel = subtract_vector(posCellVal, (0, CELL_SIZE * 2))
+            tempPos = [posCellVal[0], VARIABLE_FONT[1] * 2 // 3]
             templabel = self.canvas.create_text(
-                *posLabel, text=varName, font=VARIABLE_FONT, 
+                *tempPos, text=varName, font=VARIABLE_FONT, 
                 fill=VARIABLE_COLOR)
 
         delta = (tempPos[0] - posCellVal[0] if existing else 0, 
-                 - CELL_SIZE * 4 // 3)
+                 - MAX_CELL_HEIGHT * 5 // 4)
         self.moveItemsBy((shape, val), delta, sleepTime=0.02)
 
         return drawable(fromDraw.val, fromDraw.color, shape, val), templabel
 
     def assignFromTemp(self, index, temp, templabel):
 
-        toCellCoords = self.cellCoords(index)
+        toCellCoords = list(self.cellCoords(index))
         toCellCenter = self.cellCenter(index)
         tempCellCoords = self.canvas.coords(temp.display_shape)
+        toCellCoords[3] = toCellCoords[1] + tempCellCoords[3] - tempCellCoords[1]
         deltaX = toCellCoords[0] - tempCellCoords[0]
         startAngle = 90 * 500 / (500 + abs(deltaX)) * (-1 if deltaX < 0 else 1)
                            
@@ -112,7 +115,8 @@ class SimpleArraySort(VisualizationApp):
         self.canvas.delete(self.list[index].display_val)
         self.list[index] = temp
 
-    def swap(self, a, b, aCellObjects = [], bCellObjects = []):
+    def swap(self, a, b, aCellObjects = [], bCellObjects = [], 
+             preserveHeight = True):
         itemsA = [self.list[a].display_shape, 
                   self.list[a].display_val] + aCellObjects
         itemsB = [self.list[b].display_shape, 
@@ -125,8 +129,14 @@ class SimpleArraySort(VisualizationApp):
             return
 
         # make a and b cells plus their associated items switch places
+        toCoords = [list(self.canvas.coords(i)) for i in itemsB + itemsA]
+        if preserveHeight:
+            nItems = len(toCoords) // 2
+            for i in range(nItems):
+                toCoords[i][-1], toCoords[i + nItems][-1] = (
+                    toCoords[i + nItems][-1], toCoords[i][-1])
         self.moveItemsOnCurve(
-            itemsA + itemsB, [self.canvas.coords(i) for i in itemsB + itemsA],
+            itemsA + itemsB, toCoords,
             sleepTime=0.05, startAngle=90 * 11/(10 + abs(a - b)))
 
         # perform the actual cell swap operation in the list
@@ -189,7 +199,7 @@ def insert(self, item):
         canvasDimensions = self.widgetDimensions(self.canvas)
         startPosition = add_vector(
             [canvasDimensions[0] // 2 - CELL_SIZE, canvasDimensions[1]] * 2,
-            (0, 0) + (CELL_SIZE - CELL_BORDER,) * 2)
+            (0, 0) + (CELL_SIZE - CELL_BORDER, MAX_CELL_HEIGHT - CELL_BORDER))
         cellPair = self.createCellValue(startPosition, val)
         self.moveItemsTo(cellPair, toPositions, steps=CELL_SIZE, sleepTime=0.01)
 
@@ -223,11 +233,12 @@ def insert(self, item):
     def cellCoords(self, cell_index): # Get bounding rectangle for array cell
         return (ARRAY_X0 + CELL_SIZE * cell_index, ARRAY_Y0, # at index
                 ARRAY_X0 + CELL_SIZE * (cell_index + 1) - CELL_BORDER,
-                ARRAY_Y0 + CELL_SIZE - CELL_BORDER)
+                ARRAY_Y0 + MAX_CELL_HEIGHT - CELL_BORDER)
 
     def cellCenter(self, cell_index): # Center point for array cell at index
         half_cell = (CELL_SIZE - CELL_BORDER) // 2
-        return add_vector(self.cellCoords(cell_index), (half_cell, half_cell))
+        return add_vector(self.cellCoords(cell_index),
+                          (half_cell, (MAX_CELL_HEIGHT - CELL_BORDER) // 2))
 
     def createArrayCell(self, index): # Create a box representing an array cell
         cell_coords = self.cellCoords(index)
@@ -240,15 +251,20 @@ def insert(self, item):
         self.canvas.lower(rect)
         return rect
 
+    def cellHeight(self, key):  # Compute cell height based on key 0 - 99
+        return CELL_SIZE + ((MAX_CELL_HEIGHT - CELL_SIZE) * min(key, 99) // 99)
+    
     def createCellValue(self, indexOrCoords, key, color=None):
-        """Create new canvas items to represent a cell value.  A square
-        is created filled with a particular color with a text key centered
-        inside.  The position of the cell can either be an integer index in
-        the Array or the bounding box coordinates of the square.  If color
-        is not supplied, the next color in the palette is used.
-        An event handler is set up to update the VisualizationApp argument
-        with the cell's value if clicked with any button.
-        Returns the tuple, (square, text), of canvas items
+        """Create new canvas items to represent a cell value.  A rectangle is
+        created filled with a particular color with a text key inside.
+        The position of the cell can either be an integer index in the
+        Array or the bounding box coordinates of the rectangle.  The
+        height of the rectangle will be proportional to the key stored
+        in the array cell.  If color is not supplied, the next color
+        in the palette is used.  An event handler is set up to update
+        the VisualizationApp argument with the cell's value if clicked
+        with any button.  Returns the tuple, (square, text), of canvas
+        items.
         """
         # Determine position and color of cell
         if isinstance(indexOrCoords, int):
@@ -262,6 +278,9 @@ def insert(self, item):
             color = drawable.palette[SimpleArraySort.nextColor]
             SimpleArraySort.nextColor = (SimpleArraySort.nextColor + 1) % len(drawable.palette)
 
+        # Adjust height of rectangle to be proporional to key
+        rectPos = list(rectPos)
+        rectPos[3] = rectPos[1] + self.cellHeight(key)
         cell_rect = self.canvas.create_rectangle(
             *rectPos, fill=color, outline='', width=0)
         cell_val = self.canvas.create_text(
@@ -701,7 +720,9 @@ def selectionSort(self):
         
     def fixCells(self):       # Move canvas display items to exact cell coords
         for i, drawItem in enumerate(self.list):
-            self.canvas.coords(drawItem.display_shape, *self.cellCoords(i))
+            cellCoords = list(self.cellCoords(i))
+            cellCoords[3] = cellCoords[1] + self.cellHeight(drawItem.val)
+            self.canvas.coords(drawItem.display_shape, *cellCoords)
             self.canvas.coords(drawItem.display_val, *self.cellCenter(i))
         self.window.update()
 
