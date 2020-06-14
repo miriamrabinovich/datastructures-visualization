@@ -191,23 +191,47 @@ class Array(VisualizationApp):
 
         self.window.update()
 
+    findCode = """
+def search(self, item):
+    for j in range(self.nItems):
+        if self.__a[j] == item:
+            return self.__a[j]
+    return None
+    """
+
+    findCodeSnippets = {
+        'outer_loop_increment': ('2.8', '2.32'),
+        'key_comparison': ('3.11', '3.end'),
+        'key_found': ('4.12', '4.end'),
+        'key_not_found': ('5.4', '5.end'),
+    }
+
     def find(self, val):
         global running
         running = True
         self.cleanUp()
+        self.showCode(self.findCode.strip())
+        self.createCodeTags(self.findCodeSnippets)
 
         # draw an index for variable j pointing to the first cell
         indexDisplay = self.createIndex(0, 'j')
         self.cleanup |= set(indexDisplay)
 
+        self.highlightCodeTags('outer_loop_increment')
+        self.window.update()
+        time.sleep(self.speed(.5))
+
         # go through each Drawable in the list
         for i in range(len(self.list)):
-            self.window.update()
-
             n = self.list[i]
 
             # if the value is found
+            self.highlightCodeTags('key_comparison')
+            self.window.update()
+            time.sleep(self.speed(.5))
             if n.val == val:
+                self.highlightCodeTags('key_found')
+
                 # get the position of the displayed cell 
                 posShape = self.canvas.coords(n.display_shape)
                 
@@ -220,17 +244,31 @@ class Array(VisualizationApp):
 
                 # update the display
                 self.window.update()
+                time.sleep(self.speed(.5))
 
+                self.highlightCodeTags([])
+                #self.stopAnimations()
                 return i
 
             # if not found, wait 1 second, and then move the index over one cell
-            time.sleep(self.speed(1))
+            self.highlightCodeTags('outer_loop_increment')
+
             for item in indexDisplay:
                 self.canvas.move(item, CELL_SIZE, 0)
+
+            self.window.update()
+            time.sleep(self.speed(.5))
 
             if not running:
                 break
 
+
+        self.highlightCodeTags('key_not_found')
+        self.window.update()
+        time.sleep(self.speed(.5))
+
+        self.highlightCodeTags([])
+        #self.stopAnimations()
         return None
 
     def remove(self, val):
