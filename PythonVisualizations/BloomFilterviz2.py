@@ -9,7 +9,7 @@ HEIGHT = 250
 CELL_SIZE = 25
 BF_X0 = 100
 BF_Y0 = 100
-
+# this is a test
 class BloomFilter(object):
     Element = recordclass('Element', ['val','display_shape', 'display_val'])
     Element.__new__.__defaults__ = (None,) * len(Element._fields)
