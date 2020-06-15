@@ -86,10 +86,19 @@ class Array(object):
     def removeFromEnd(self):
         # pop an Element from the list
         n = self.list.pop()
-
+            
+        # Slide value rectangle up and off screen
+        items = (n.display_shape, n.display_val)
+        self.moveItemsOffCanvas(items, N, sleepTime=0.02)  
+        
         # delete the associated display objects
+<<<<<<< Updated upstream
         canvas.delete(n.display_shape)
         canvas.delete(n.display_val)
+=======
+        #self.canvas.delete(n.display_shape)
+        #self.canvas.delete(n.display_val)
+>>>>>>> Stashed changes
 
         # update window
         window.update()
